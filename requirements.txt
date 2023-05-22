@@ -1,0 +1,8 @@
+propy3
+pandas
+numpy
+scikit-learn
+xgboost
+lightgbm
+scipy
+optuna
