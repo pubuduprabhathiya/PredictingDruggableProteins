@@ -553,23 +553,23 @@ import sys
 
 def main():
 
-    if len(sys.argv) != 5:
-        print("Error: 4 inputs required.")
-        print("Usage: python prediction.py <positive training data> <negative training data> <positive testing data> <negative testing data>")
-        sys.exit(1)
+    # if len(sys.argv) != 5:
+    #     print("Error: 4 inputs required.")
+    #     print("Usage: python prediction.py <positive training data> <negative training data> <positive testing data> <negative testing data>")
+    #     sys.exit(1)
 
-    # Get the inputs from the command line
-    positive_training_data = sys.argv[1]
-    negative_training_data = sys.argv[2]
-    positive_testing_data = sys.argv[3]
-    negative_testing_data = sys.argv[4]
+    # # Get the inputs from the command line
+    # positive_training_data = sys.argv[1]
+    # negative_training_data = sys.argv[2]
+    # positive_testing_data = sys.argv[3]
+    # negative_testing_data = sys.argv[4]
     # positive_training_data = sys.argv[1] if len(sys.argv) > 1 else "dataset/TR_pos_SPIDER.txt"
     # negative_training_data = sys.argv[2] if len(sys.argv) > 2 else "dataset/TR_neg_SPIDER.txt"
     # positive_testing_data = sys.argv[3] if len(sys.argv) > 3 else "dataset/TS_pos_SPIDER.txt"
     # negative_testing_data = sys.argv[4] if len(sys.argv) > 4 else "dataset/TS_neg_SPIDER.txt"
    
-    CreateDataset(positive_training_data, negative_training_data, positive_testing_data, negative_testing_data)
-    CreateModels()
+    # CreateDataset(positive_training_data, negative_training_data, positive_testing_data, negative_testing_data)
+    # CreateModels()
     Predict()
 
 if __name__ == "__main__":
