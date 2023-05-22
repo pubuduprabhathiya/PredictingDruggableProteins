@@ -101,7 +101,7 @@ def CreateDataset(positive_train_data, negative_train_data, positive_test_data, 
     combineNegativeAndPositiveDFs(negative_test_data, positive_test_data, 'PAAC').to_csv(f'processed_dataset/TS_PAAC.csv', index=False)
     combineNegativeAndPositiveDFs(negative_test_data, positive_test_data, 'DPC').to_csv(f'processed_dataset/TS_DPC.csv', index=False)
 # # # classifiers-with-feature-combinations
-def Predict():
+def CreateModels():
     feature_types = ['AAC', 'APAAC', 'CTD', 'DPC', 'PAAC']
 
     data_dir = 'processed_dataset'
@@ -440,121 +440,114 @@ def Predict():
                 mcc = matthews_corrcoef(y_test, y_pred)
 
                 # append to test_results
+                print('feature_type', feature_type,'model', name, 'accuracy', accuracy, 'sensitivity', sensitivity, 'specificity', specificity, 'precision', precision, 'f1', f1)
+                
                 test_results.append({'feature_type': feature_type, 'model': name, 'with_hypertuning': row['with_hypertuning'], 'best_params': row['best_params'], 'accuracy': accuracy, 'sensitivity': sensitivity, 'specificity': specificity, 'precision': precision, 'f1': f1, 'mcc': mcc, 'index': row['index']})
         print(f'Feature Type: {feature_type} done!')
 
     test_results = pd.DataFrame(test_results)
     test_results.to_csv('test_results.csv', index=False)
 
+def WriteTextFile(filename,data):
+    # Open the file in write mode ('w')
+    with open(filename, 'w') as file:
+        # Write content to the file
+        file.write(data)
 
+def Predict():
+    data_dir="processed_dataset"
+    models = {
+        'SVC': SVC(),
+        'XGBClassifier': XGBClassifier(),
+        'LGBMClassifier': LGBMClassifier()
+    }
 
-    """# Model Ensembling"""
-
-    #  Create a dictionary to store the trained models
-    trained_models = {}
-
-    feature_types = ['AAC', 'APAAC', 'DPC', 'PAAC']
-    selected_feature_types = ['selected_features_all_best20','selected_features_all_best50','selected_features_all_best100']
+    # Load the results
+    results = pd.read_csv('output/test_results.csv')
+    name=  "XGBClassifier" #results['model'][results['accuracy'].idxmax()]
+    model=models[name]
+    feature_type = "PAAC" #results['feature_type'][results['accuracy'].idxmax()]
+    # feature_types = ['AAC', 'APAAC', 'CTD', 'DPC', 'PAAC']
+    # selected_feature_types = ['selected_features_all_best20','selected_features_all_best50','selected_features_all_best100']
 
     # Combine the feature types
-    feature_types.extend(selected_feature_types)
-    # get the results
-    results = pd.read_csv('results_v2.csv')
+    # feature_types.extend(selected_feature_types)
 
-    # create an empty DataFrame to store the merged dataset
-    merged_train_data = pd.DataFrame()
-    merged_test_data = pd.DataFrame()
+    test_results = []
+    # iterate through each row of results
+    # for feature_type in feature_types:
 
-    # iterate through the feature types
-    for feature_type in feature_types:
+    # Check if the feature type is selected features
+    if 'selected_features' in feature_type:
         # Load the training dataset
-        train_data = pd.read_csv(f"{data_dir}/TR_{feature_type}.csv")
-        test_data = pd.read_csv(f"{data_dir}/TS_{feature_type}.csv")
-        
-        # Check if the feature type is selected features
-        if 'selected_features' in feature_type:
-            # Load the training dataset
-            train_data = pd.read_csv(f'{feature_engineered_data_dir}/TR_{feature_type}.csv')
-            test_data = pd.read_csv(f'{feature_engineered_data_dir}/TS_{feature_type}.csv')
-        else:
-            # Load the training dataset
-            train_data = pd.read_csv(f'{data_dir}/TR_{feature_type}.csv')
-            test_data = pd.read_csv(f'{data_dir}/TS_{feature_type}.csv')
-        
-        # Separate features and target
-        X_train = train_data.drop(columns=['label', 'id'], axis=1)
-        y_train = train_data['label']
+        train_data = pd.read_csv(f'output/TR_{feature_type}.csv')
+        test_data = pd.read_csv(f'output/TS_{feature_type}.csv')
+    else:
+        # Load the training dataset
+        train_data = pd.read_csv(f'{data_dir}/TR_{feature_type}.csv')
+        test_data = pd.read_csv(f'{data_dir}/TS_{feature_type}.csv')
 
-        X_test = test_data.drop(columns=['label', 'id'], axis=1)
-        y_test = test_data['label']
-        
-        scaler = StandardScaler()
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)
+    # Separate features and target
+    X_train = train_data.drop(columns=['label', 'id'], axis=1)
+    y_train = train_data['label']
 
-        train_data = pd.concat([train_data['id'], train_data['label'], pd.DataFrame(X_train)], axis=1)
-        test_data = pd.concat([test_data['id'], test_data['label'], pd.DataFrame(X_test)], axis=1)
+    X_test = test_data.drop(columns=['label', 'id'], axis=1)
+    y_test = test_data['label']
 
-        # check whether the merged dataset is empty
-        if merged_train_data.empty:
-            merged_train_data = train_data
-            merged_test_data = test_data
-        else:
-            # assume 'id' is the common column
-            merged_train_data = pd.merge(merged_train_data, train_data, on=['id', 'label'])
-            merged_test_data = pd.merge(merged_test_data, test_data, on=['id', 'label'])
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
 
-        # Get the best model for each feature type
-        best_model = results[results['feature_type'] == feature_type].sort_values(by='accuracy', ascending=False).iloc[0]
-        model = models[best_model['model']]
+    # iterate through each model
+    # get the row of the model
+
+    
+    rows = results[(results['feature_type'] == feature_type) & (results['model'] == name)]
+
+    # iterate through each row
+    for index, row in rows.iterrows():
+
         # check whether the model has hyperparameters
-        if best_model['with_hypertuning'] == True:
-            hyperparameters = ast.literal_eval(best_model['best_params'])
+        if row['with_hypertuning'] == True:
+            hyperparameters = ast.literal_eval(row['best_params'])
             # check the model is SVC
-            if best_model['model'] == 'SVC':
+            if row['model'] == 'SVC':
                 hyperparameters = {k[4:]: v for k, v in hyperparameters.items()}
                 # make key 'c' to 'C'
                 hyperparameters['C'] = hyperparameters.pop('c')
             # set best hyperparameters
             model.set_params(**hyperparameters)
+        else:
+            continue
+
         # fit model
         model.fit(X_train, y_train)
-        # append to trained_models 
-        trained_models[feature_type] = model
 
-    # Create the ensemble model
-    ensemble = VotingClassifier(estimators=list(trained_models.items()), voting='hard')
+        # predict
+        y_pred = model.predict(X_test)
 
-    # Seperate features and target
-    X_train = merged_train_data.drop(columns=['label', 'id'], axis=1)
-    y_train = merged_train_data['label']
+        # evaluate using accuracy, sensitivity, specificity, precision, f1, mcc
+        accuracy = accuracy_score(y_test, y_pred)
+        sensitivity = recall_score(y_test, y_pred)
+        specificity = recall_score(y_test, y_pred, pos_label=0)
+        precision = precision_score(y_test, y_pred)
+        f1 = f1_score(y_test, y_pred)
+        mcc = matthews_corrcoef(y_test, y_pred)
 
-    X_test = merged_test_data.drop(columns=['label', 'id'], axis=1)
-    y_test = merged_test_data['label']
-
-    # fit model
-    ensemble.fit(X_train, y_train)
-
-    # predict
-    y_pred = ensemble.predict(X_test)
-
-    # evaluate using accuracy, sensitivity, specificity, precision, f1, mcc
-    accuracy = accuracy_score(y_test, y_pred)
-    sensitivity = recall_score(y_test, y_pred)
-    specificity = recall_score(y_test, y_pred, pos_label=0)
-    precision = precision_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred)
-    mcc = matthews_corrcoef(y_test, y_pred)
-
-    print(f'Accuracy: {accuracy}')
-
-    test_results = []
-    # append to test_results
-    test_results.append({'model': "VotingClassifier",'accuracy': accuracy, 'sensitivity': sensitivity, 'specificity': specificity, 'precision': precision, 'f1': f1, 'mcc': mcc, 'index': row['index']})
-    test_results = pd.DataFrame(test_results)
-    test_results.to_csv('test_results_ensemble.csv', index=False)
-
-# command_line_script.py
+        # append to test_results
+        # print( feature_type, name," "*(30-len(feature_type)+len()), accuracy,  sensitivity,  specificity, precision, f1)
+        
+        test_results.append({'accuracy': accuracy, 'sensitivity': sensitivity, 'specificity': specificity, 'precision': precision, 'f1': f1})
+    test_results_pd = pd.DataFrame(test_results)
+    print(test_results_pd)
+    test_data["predict"]=y_pred
+    df_positive = test_data[test_data['id'].str.contains('Positive')]["predict"].to_string(index=False)
+    df_negative  = test_data[test_data['id'].str.contains('Negative')]["predict"].to_string(index=False)
+    
+    WriteTextFile("predictions_pos.txt",df_positive)
+    WriteTextFile("predictions_neg.txt",df_negative)
+    # df_positive=pd.DataFrame(df_positive)
+    # df_negative =pd.DataFrame(df_negative )
 
 import sys
 
@@ -574,10 +567,12 @@ def main():
     # negative_training_data = sys.argv[2] if len(sys.argv) > 2 else "dataset/TR_neg_SPIDER.txt"
     # positive_testing_data = sys.argv[3] if len(sys.argv) > 3 else "dataset/TS_pos_SPIDER.txt"
     # negative_testing_data = sys.argv[4] if len(sys.argv) > 4 else "dataset/TS_neg_SPIDER.txt"
+   
     CreateDataset(positive_training_data, negative_training_data, positive_testing_data, negative_testing_data)
+    CreateModels()
     Predict()
-    
 
 if __name__ == "__main__":
-    
+    # import os
+    # os.system("pip install -r requirements.txt")
     main()
